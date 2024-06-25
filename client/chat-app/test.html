@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket.io Test</title>
+</head>
+<body>
+  <h1>Socket.io Test</h1>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  <script>
+    const socket = io('http://localhost:5000');
+    
+    socket.on('connect', () => {
+      console.log('Connected to server');
+    });
+
+    socket.on('message', (msg) => {
+      console.log('Received message:', msg);
+    });
+
+    setTimeout(() => {
+      socket.emit('message', 'Hello from test.html');
+    }, 1000);
+  </script>
+</body>
+</html>
