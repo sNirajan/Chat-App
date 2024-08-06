@@ -8,7 +8,7 @@ const io = require('socket.io')(http, {
   cors: {
     origin: "http://localhost:3000",
     methods: ["GET", "POST"],
-    allowHeaders: ["my-custom-header"],
+    allowHeaders: ["Content-Type"],
     credentials: true
   },
   transports: ['websocket', 'polling'] // Ensure WebSocket is the primary transport
@@ -30,23 +30,35 @@ app.use(session({
 
 app.post('/register', async (req, res) => {
   const {userName, password} = req.body;
+  console.log('Received registration request:', userName, password);
   if (users[userName]){
     return res.status(400).json({message: 'User already exists'});
   }
   const hashedPassword = await bcrypt.hash(password, 10); // 10 is salt rounds, making the hashing process more secure
-  users[username] = {password: hashedPassword};
+  users[userName] = {password: hashedPassword};
   res.status(201).json({message: 'User registered successfully'});
 })
 
 app.post('/login', async (req, res) => {
   const {userName, password} = req.body;
+  console.log('Received login request:', userName, password);
   const user = users[userName];
   if (!user || !(await bcrypt.compare(password, user.password))) { 
     return res.status(400).json({message: 'Invalid username or password'});
   }
-  req.session.user = username;
+  req.session.user = userName;
+  console.log('Login successful for user:', userName);
   res.json({message: 'Logged in successfully'});
 });
+
+app.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if(err){
+      return res.status(500).json({message: 'Logout failed'});
+    }
+    res.json({message: 'Logged out successfully'});
+  })
+})
 
 app.get('/', (req, res) => {
   res.send('Server is running');
