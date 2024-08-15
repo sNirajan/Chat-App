@@ -11,8 +11,13 @@ function App() {
   // main react component
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
-  const [userName, setUserName] = useState("");
-  const [password, setPassword] = useState("");
+
+  const [registerUserName, setRegisterUserName] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+
+  const [loginUserName, setLoginUserName] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [profile, setProfile] = useState({ displayName: " ", bio: "" });
   const [loggedIn, setLoggedIn] = useState(false);
   const chatBoxRef = useRef(null);
 
@@ -61,15 +66,19 @@ function App() {
   };
 
   const register = async () => {
-    console.log("Registering with:", userName, password);
+    console.log("Registering with:", registerUserName, registerPassword);
     try {
       const response = await fetch("http://localhost:5000/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName: userName, password }),
+        body: JSON.stringify({ registerUserName, registerPassword }),
       });
       if (response.ok) {
         alert("Registered successfully");
+
+        // Clearing the input fields after successful registration
+        setRegisterUserName("");
+        setRegisterPassword("");
       } else {
         const data = await response.json();
         console.log("Registration failed", data);
@@ -82,15 +91,18 @@ function App() {
   };
 
   const login = async () => {
-    console.log("Logging in with:", userName, password);
+    console.log("Logging in with:", loginUserName, loginPassword);
     try {
       const response = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName: userName, password }),
+        body: JSON.stringify({ loginUserName, loginPassword }),
       });
       if (response.ok) {
+        const data = await response.json();
+        setProfile(data.profile);
         setLoggedIn(true);
+        
       } else {
         const data = await response.json();
         console.log("Login failed:", data);
@@ -102,28 +114,46 @@ function App() {
     }
   };
 
-  const logout = async () =>{
+  const logout = async () => {
     console.log("Logging out");
-    try{
+    try {
       const response = await fetch("http://localhost:5000/logout", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
       });
-      if(response.ok){
+      if (response.ok) {
         setLoggedIn(false);
-        setUserName('');
-        setPassword('');
-      } else{
+        setLoginUserName("");
+        setLoginPassword("");
+      } else {
         const data = await response.json();
         console.log("Logout failed:", data);
         alert("Logout failed");
       }
-    } 
-    catch(error){
+    } catch (error) {
       console.log("Error during logout:", error);
       alert("Logout failed due to network error");
     }
-  }; 
+  };
+
+  const updateProfile = async () => {
+    console.log("updating profile for:", loginUserName);
+    try {
+      const response = await fetch("http://localhost:5000/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loginUserName, profile }),
+      });
+      if (response.ok) {
+        alert("Profile updated successfully");
+      } else {
+        alert("Failed to update profile");
+      }
+    } catch (error) {
+      console.log("Error during profile update:", error);
+      alert("Failed to update profile due to network error");
+    }
+  };
 
   return (
     <div className="App">
@@ -132,26 +162,38 @@ function App() {
           <h2>Register</h2>
           <input
             type="text"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
+            value={registerUserName}
+            onChange={(e) => setRegisterUserName(e.target.value)}
             placeholder="Username"
           />
           <input
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={registerPassword}
+            onChange={(e) => setRegisterPassword(e.target.value)}
             placeholder="Password"
           />
           <button onClick={register}>Register</button>
 
           <h2>Login</h2>
+          <input
+            type="text"
+            value={loginUserName}
+            onChange={(e) => setLoginUserName(e.target.value)}
+            placeholder="Username"
+          />
+          <input
+            type="password"
+            value={loginPassword}
+            onChange={(e) => setLoginPassword(e.target.value)}
+            placeholder="Password"
+          />
           <button onClick={login}>Login</button>
         </div>
       ) : (
         <>
           <header className="App-header">
             <h1>Chat Application</h1>
-            
+            <h2>Hello, {loginUserName}!</h2> {/* Greeting the user*/}
           </header>
 
           <div className="chat-box" ref={chatBoxRef}>
@@ -174,8 +216,36 @@ function App() {
             <button onClick={sendMessage}>Send</button>
           </div>
 
+          <div className="profile">
+            <h2>Profile</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault(); // Prevent page reload on form submit
+                updateProfile();
+              }}
+            >
+              <input
+                type="text"
+                value={profile.displayName}
+                onChange={(e) =>
+                  setProfile({ ...profile, displayName: e.target.value })
+                }
+                placeholder="Display Name"
+              />
+              <input
+                type="text"
+                value={profile.bio}
+                onChange={(e) =>
+                  setProfile({ ...profile, bio: e.target.value })
+                }
+                placeholder="Bio"
+              />
+              <button type="submit">Update Profile</button>
+            </form>
+          </div>
+
           <div className="footer">
-          <button onClick={logout}>Logout</button>
+            <button onClick={logout}>Logout</button>
           </div>
         </>
       )}
