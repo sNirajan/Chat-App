@@ -32,7 +32,7 @@ function App() {
 
     socket.on("message", (message) => {
       console.log("Received message: " + JSON.stringify(message)); // Log received message
-      setMessages((prevMessages) => [...prevMessages, message]);
+      setMessages((prevMessages) => [...(prevMessages || []), message]);
     });
 
     socket.on("disconnect", () => {
@@ -47,11 +47,23 @@ function App() {
     };
   }, []);
 
+  // Auto-scrolling effect
   useEffect(() => {
-    if (chatBoxRef.current) {
+    if (chatBoxRef.current){
       chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
-    } //The useEffect hook with chatBoxRef.current.scrollTop ensures that the chat box scrolls to the bottom whenever a new message is added.
+    }
   }, [messages]);
+
+  // useEffect(() => {
+  //   socket.on("message", (message) => {
+  //     console.log("Received message: " + JSON.stringify(message));
+  //     setMessages((prevMessages) => [...(prevMessages || []), message]);
+  //   });
+
+  //   return () => {
+  //     socket.off("message");
+  //   };
+  // }, []);
 
   const sendMessage = () => {
     if (message.trim()) {
@@ -60,7 +72,9 @@ function App() {
         timestamp: new Date().toLocaleTimeString(),
       };
       console.log("Sending message: " + JSON.stringify(newMessage)); // Log sending message
+
       socket.emit("message", newMessage);
+      setMessages((prevMessages) => [...(prevMessages || []), newMessage]);
       setMessage("");
     }
   };
@@ -100,13 +114,13 @@ function App() {
       });
       if (response.ok) {
         const data = await response.json();
-        setProfile(data.profile);
         setLoggedIn(true);
+        setProfile(data.profile);
+        setMessages(data.messages || []); // Loading the messages from the server
         
       } else {
         const data = await response.json();
-        console.log("Login failed:", data);
-        alert("Login failed");
+        alert(data.message);
       }
     } catch (error) {
       console.log("Error during login:", error);
@@ -114,27 +128,6 @@ function App() {
     }
   };
 
-  const logout = async () => {
-    console.log("Logging out");
-    try {
-      const response = await fetch("http://localhost:5000/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (response.ok) {
-        setLoggedIn(false);
-        setLoginUserName("");
-        setLoginPassword("");
-      } else {
-        const data = await response.json();
-        console.log("Logout failed:", data);
-        alert("Logout failed");
-      }
-    } catch (error) {
-      console.log("Error during logout:", error);
-      alert("Logout failed due to network error");
-    }
-  };
 
   const updateProfile = async () => {
     console.log("updating profile for:", loginUserName);
@@ -147,12 +140,21 @@ function App() {
       if (response.ok) {
         alert("Profile updated successfully");
       } else {
-        alert("Failed to update profile");
+        const data = await response.json();
+        alert(data.message);
       }
     } catch (error) {
       console.log("Error during profile update:", error);
       alert("Failed to update profile due to network error");
     }
+  };
+
+  const logout = () => {
+    setLoggedIn(false);
+    setMessages([]);
+    setProfile({ displayName: "", bio: ""});
+    setLoginUserName("");
+    setLoginPassword("");
   };
 
   return (
@@ -193,11 +195,11 @@ function App() {
         <>
           <header className="App-header">
             <h1>Chat Application</h1>
-            <h2>Hello, {loginUserName}!</h2> {/* Greeting the user*/}
+            <h2>Hello, {profile.displayName || loginUserName}!</h2> {/* Greeting the user*/}
           </header>
 
           <div className="chat-box" ref={chatBoxRef}>
-            {messages.map((msg, index) => (
+            {messages && messages.map((msg, index) => (
               <div key={index} className="message">
                 <span className="message-text">{msg.text}</span>
                 <span className="message-timestamp">{msg.timestamp}</span>

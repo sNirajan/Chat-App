@@ -3,8 +3,10 @@ const cors = require("cors");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const app = express();
-const mongoose = require('mongoose');
+const Message = require("./models/message");
 const http = require("http").createServer(app);
+const User = require("./models/User");
+const mongoose = require("mongoose");
 const io = require("socket.io")(http, {
   cors: {
     origin: "http://localhost:3000",
@@ -15,29 +17,13 @@ const io = require("socket.io")(http, {
   transports: ["websocket", "polling"], // Ensure WebSocket is the primary transport
 });
 
-const users = {}; // In-memory user store
-//This is where we keep track of all the users who register. Eventually, in a real-world app, this would be replaced by a database like MongoDB or MySQL, but for learning purposes, an in-memory store is easier to start with.
-
-// connection to mongoDB
-mongoose.connect('mongodb+srv://<snirajan>:<O6KmenTcjsTdbZ3h>@cluster0.oiw39.mongodb.net/', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-
-})
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
-
-// defining the message schema
-const messageSchema = new mongoose.Schema({
-  sender: String,   // User who sent the message
-  content: String,  // The message text
-  timestamp: { type: Date, default: Date.now }, // TIme the message was sent
-  room: String,     // Room or channel if applicable
-});
-
-// message model
-const Message = mongoose.model('Message', messageSchema);
-
+// connection to mongoDB //
+mongoose
+  .connect(
+    "mongodb+srv://snirajan:Maiyamaiya@cluster0.oiw39.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+  )
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use(
   cors({
@@ -63,36 +49,68 @@ app.post("/register", async (req, res) => {
     registerPassword
   );
 
-  if (!registerUserName || !registerPassword) {
-    return res
-      .status(400)
-      .json({ message: "Username and password are required" });
-  }
-
-  if (users[registerUserName]) {
-    return res.status(400).json({ message: "User already exists" });
-  }
-
   try {
-    const hashedPassword = await bcrypt.hash(registerPassword, 10); // 10 is salt rounds, making the hashing process more secure
-    users[registerUserName] = { password: hashedPassword, profile: {} };
+    // checks if the user already exists
+    const existingUser = await User.findOne({ username: registerUserName });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // hash the password
+    const hashedPassword = await bcrypt.hash(registerPassword, 10); // 10 is the salt rounds
+
+    // create a new user object
+    const newUser = new User({
+      username: registerUserName,
+      password: hashedPassword,
+      profile: {
+        displayName: registerUserName,
+      },
+    });
+
+    // saves the user to the database
+    await newUser.save();
+
+    // sends a success response
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
-    console.log("Error hashing password:", error);
-    res.status(500).json({ message: "Server error" });
+    console.log("Error during registration: ", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
 app.post("/login", async (req, res) => {
   const { loginUserName, loginPassword } = req.body;
   console.log("Received login request:", loginUserName, loginPassword);
-  const user = users[loginUserName];
-  if (!user || !(await bcrypt.compare(loginPassword, user.password))) {
-    return res.status(400).json({ message: "Invalid username or password" });
+
+  try {
+    // finds the user in the database by username
+    const user = await User.findOne({ username: loginUserName });
+
+    // if user doesn't exist or password doesn't match, sends an error response
+    if (!user || !(await bcrypt.compare(loginPassword, user.password))) {
+      return res.status(400).json({ message: "Invalid username or password" });
+    }
+
+    // stores the logged-in user's username in the session
+    req.session.user = loginUserName;
+    console.log("Login successful for user:", loginUserName);
+
+    // Fetch messages from MongoDB
+    const messages = await Message.find({}).sort({ timestamp: 1}).exec(); // Fetches all messages
+
+    console.log('Fetched messages:', messages);
+
+    // sends back a successful response along with the user's profile
+    res.json({
+      message: "Logged in successfully",
+      profile: user.profile,
+      messages,
+    });
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
-  req.session.user = loginUserName;
-  console.log("Login successful for user:", loginUserName);
-  res.json({ message: "Logged in successfully", profile: user.profile });
 });
 
 app.post("/profile", (req, res) => {
@@ -129,16 +147,16 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
   console.log("A user connected: " + socket.id); // Log connection
 
-  socket.on('message', async (msg) => {
+  socket.on("message", async (msg) => {
     console.log("Received message: " + JSON.stringify(msg)); // Log received message
     const message = new Message({
-      sender: socket.user, 
+      sender: socket.user,
       content: msg.text,
-      room: 'general',
+      timestamp: new Date(),
+      room: "general",
     });
 
-    await message.save();    // saving the message to the database
-
+    await message.save(); // saving the message to the database
 
     io.emit("message", msg); // Broadcast message to all connected clients
   });
