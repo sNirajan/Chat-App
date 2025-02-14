@@ -1,7 +1,9 @@
 # Chat-App
 A real-time chat application built to learn and experiment with React, Node.js, Express, Socket.io, and MongoDB. This project served as a hands-on introduction to developing full-stack web applications, understanding RESTful APIs, managing WebSocket connections for live messaging, and integrating a NoSQL database.
 
-**- Features**
+---
+
+**Features -**
 
 **User Registration & Login**: Secure authentication using bcrypt for password hashing.
 
@@ -17,7 +19,9 @@ A real-time chat application built to learn and experiment with React, Node.js, 
 
 **API Integration:** Learn how to build and consume RESTful APIs.
 
-**- Technologies Used**
+---
+
+**Technologies Used -**
 
 **Frontend**: React (Create React App)
 
